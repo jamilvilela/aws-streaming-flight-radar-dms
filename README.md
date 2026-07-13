@@ -57,13 +57,12 @@ rollback-setup.sh          # Destrói recursos (Terraform destroy)
 ```bash
 # 1. Configure .env
 cp .env.example .env
-# Edite .env com AWS_REGION
+# Edite .env com DB_USER e DB_PASSWORD
 
 # 2. Configure tfvars
 # Edite infra/tfvars/terraform.tfvars:
-#   - vpc_id, subnet_ids
-#   - aurora_endpoint, aurora_port, aurora_db_name, aurora_security_group_id
-#   - min/max_capacity_units
+#   - aurora_cluster_identifier (obrigatório)
+#   - vpc_name (opcional, default: <project_name>-vpc)
 
 # 3. Deploy
 ./setup-env.sh

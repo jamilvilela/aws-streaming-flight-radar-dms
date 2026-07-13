@@ -16,15 +16,7 @@ tags = {
   ManagedBy   = "terraform"
 }
 
-# ── Networking ──────────────────────────────────────────────────────────────
-# A VPC é descoberta automaticamente pelo tag Name (default: <project_name>-vpc).
-# Opcional: descomente abaixo para usar uma VPC com nome diferente.
-# vpc_name = "default-vpc"
-
 # ── External Aurora PostgreSQL ─────────────────────────────────────────────
-# O cluster Aurora é descoberto via Terraform data source.
-# Basta informar o cluster_identifier — endpoint, porta, db_name e
-# security group são obtidos automaticamente.
 aurora_cluster_identifier = "flight-radar-stream-aurora"
 
 # ── DMS Serverless ────────────────────────────────────────────────────────
