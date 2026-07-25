@@ -1,0 +1,20 @@
+EXECUTAR APOS os testes de full load com S3.
+
+ajustar o projeto dms para nao fazer mais full load, e fazer apenas cdc. 
+ajustar capacity reduzido para carga prevista de 150mb a cada 5 minutos. 
+alterar parametros de forma que fique condizente apenas com carga cdc.
+ajustar para permitir que um serviço aws glue python execute a inicialização do dms via boto3. O serviço glue já existe em outro repositorio, e nao precisa criar este glue job.
+    dms = boto3.client("dms")
+    return dms.start_replication(
+        ReplicationConfigArn=event["ReplicationConfigArn"],
+        StartReplicationType="start-replication",
+        CdcStartPosition=event["CdcStartPosition"]  # "LSN=0/ABCDEFG"
+criar os serviços kinesis data stream para cada tabela para receber os dados diretamente de dms cdc e reter por 7 dias para serviços consumidores.
+ajustar no projeto caso nao exista ainda no monitor cloudwatch:
+
+**Monitorar lag do DMS via CloudWatch:**
+
+- `CDCLatencySource` — lag entre a transação no Aurora e a captura pelo DMS
+- `CDCLatencyTarget` — lag entre captura e aplicação no target
+
+ajustar a doc sdd para contemplar estas alterações sem informar explicitamente que é uma alteração, apenas escrever como sendo o as-is.
