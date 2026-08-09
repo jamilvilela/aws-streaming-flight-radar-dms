@@ -84,7 +84,7 @@ resource "aws_dms_replication_config" "this" {
   replication_config_identifier = "${var.project_name}-dms-serverless-config"
   source_endpoint_arn           = aws_dms_endpoint.source.endpoint_arn
   target_endpoint_arn           = aws_dms_s3_endpoint.target.endpoint_arn
-  replication_type              = "cdc"
+  replication_type              = "full-load-and-cdc"
 
   compute_config {
     replication_subnet_group_id  = aws_dms_replication_subnet_group.this.replication_subnet_group_id

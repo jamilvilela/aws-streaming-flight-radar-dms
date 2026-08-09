@@ -17,13 +17,15 @@ resource "aws_vpc_endpoint" "s3" {
 # ---------------------------------------------------------------------------
 # VPC Endpoint — Secrets Manager (Interface via PrivateLink)
 # DMS precisa acessar o Secrets Manager para credenciais do Aurora
+# Por padrão usa apenas 1 subnet (1 AZ) para reduzir custo ($0.01/h por AZ).
+# Para alta disponibilidade, defina secrets_vpce_subnet_ids com mais subnets.
 # ---------------------------------------------------------------------------
 resource "aws_vpc_endpoint" "secrets_manager" {
   vpc_id            = local.effective_vpc_id
   service_name      = "com.amazonaws.${var.aws_region}.secretsmanager"
   vpc_endpoint_type = "Interface"
 
-  subnet_ids         = local.effective_subnet_ids
+  subnet_ids         = var.secrets_vpce_subnet_ids != null ? var.secrets_vpce_subnet_ids : [local.effective_subnet_ids[0]]
   security_group_ids = [aws_security_group.secrets_endpoint.id]
 
   private_dns_enabled = true

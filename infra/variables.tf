@@ -27,6 +27,12 @@ variable "vpc_name" {
   default     = null
 }
 
+variable "secrets_vpce_subnet_ids" {
+  description = "Subnet IDs for the Secrets Manager VPC Endpoint. Default: 1 subnet (1 AZ) to reduce cost. Each AZ adds $0.01/h."
+  type        = list(string)
+  default     = null
+}
+
 # ── S3 buckets ──────────────────────────────────────────────────────────────
 
 variable "buckets" {

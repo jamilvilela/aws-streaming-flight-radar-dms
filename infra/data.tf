@@ -3,12 +3,21 @@ data "aws_region" "current" {}
 
 # ---------------------------------------------------------------------------
 # VPC discovery — encontra a VPC pelo nome (tag Name)
-# Evita expor vpc_id / subnet_ids em arquivos ou variáveis de ambiente
+# Se nenhuma VPC com o nome configurado existir, usa a default VPC como
+# fallback. Evita expor vpc_id / subnet_ids em arquivos ou variáveis.
 # ---------------------------------------------------------------------------
-data "aws_vpc" "selected" {
+data "aws_vpcs" "by_name" {
   tags = {
     Name = var.vpc_name != null ? var.vpc_name : "${var.project_name}-vpc"
   }
+}
+
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_vpc" "selected" {
+  id = local.effective_vpc_id
 }
 
 # ---------------------------------------------------------------------------
