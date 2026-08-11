@@ -23,11 +23,51 @@
 | **Security Groups** | SG para DMS e VPC Endpoint do Secrets Manager |
 | **VPC Endpoints** | Gateway S3 + Interface Secrets Manager (PrivateLink) |
 
+## Tabelas migradas (definidas explicitamente)
+
+O DMS **não** usa mais seleção por wildcard (`schema-name = "%"` / `table-name = "%"`).
+As tabelas migradas são definidas explicitamente em `infra/table-mappings.json`,
+conforme o schema `flight_radar` do `hidden/sql-init-schema.sql`:
+
+| Tabela | Origem | Observações |
+|--------|--------|-------------|
+| `countries` | countries.csv (OurAirports) | Referência |
+| `aircraft_types` | airplanes.csv (OpenFlights) | Catálogo de modelos |
+| `airports` | airports.csv (OurAirports) | Referência |
+| `airlines` | airlines.csv (OpenFlights) | Referência |
+| `routes` | routes.csv (OpenFlights) | Referência |
+| `aircraft` | Gerada dinamicamente | Aeronaves individuais |
+| `flights` | Gerada dinamicamente | Tabela fato de voos |
+| `aircraft_positions` | Gerada dinamicamente (PARTITIONED) | Fato de altíssimo volume |
+
+### Filtro de data no Full Load — `aircraft_positions`
+
+A tabela `aircraft_positions` é selecionada apenas pela tabela **pai** (partições
+mensais não são selecionadas individualmente, evitando output duplicado no S3).
+A regra de seleção inclui um *source filter* que limita a carga full (e o CDC) a
+registros com `recorded_at >= 2026-01-01`:
+
+```json
+{
+  "filter-type": "source",
+  "column-name": "recorded_at",
+  "filter-conditions": [
+    { "filter-operator": "gte", "value": "2026-01-01" }
+  ]
+}
+```
+
+> **Nota (limitações AWS DMS p/ PostgreSQL particionado):** o DMS não replica
+> metadados de particionamento — no target S3 a tabela é gravada como tabela
+> padrão (não particionada). DDL de partição (`ADD`/`DROP`/`TRUNCATE`) não é
+> capturado no CDC.
+
 ## Estrutura
 
 ```
 infra/                     # Terraform (recursos DMS Serverless)
 ├── main.tf                # Recursos principais (subnet group, endpoints, replication config)
+├── table-mappings.json    # Definição explícita das tabelas migradas + filtros (source of truth)
 ├── variables.tf           # Variáveis de entrada
 ├── outputs.tf             # Outputs do stack
 ├── providers.tf           # Provider AWS

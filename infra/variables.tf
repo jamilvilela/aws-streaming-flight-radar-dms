@@ -71,7 +71,7 @@ variable "multi_az" {
 }
 
 variable "table_mappings" {
-  description = "DMS table mappings JSON (selection rules, transformations)"
+  description = "DMS table mappings JSON (selection rules, transformations). Default: infra/table-mappings.json (tabelas explícitas do schema flight_radar + filtro de data >= 2026-01-01 no full load de aircraft_positions)"
   type        = string
   default     = null
 }

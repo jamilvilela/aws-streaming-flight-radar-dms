@@ -95,20 +95,13 @@ resource "aws_dms_replication_config" "this" {
     preferred_maintenance_window = "sun:06:00-sun:07:00"
   }
 
-  table_mappings = var.table_mappings != null ? var.table_mappings : jsonencode({
-    rules = [
-      {
-        "rule-type" = "selection"
-        "rule-id"   = "1"
-        "rule-name" = "default"
-        "object-locator" = {
-          "schema-name" = "%"
-          "table-name"  = "%"
-        }
-        "rule-action" = "include"
-      }
-    ]
-  })
+  # Regras de mapeamento explícitas — ver infra/table-mappings.json.
+  # Seleciona APENAS as tabelas do schema flight_radar definidas em
+  # hidden/sql-init-schema.sql, e aplica source filter de data no full load
+  # (e CDC) da tabela particionada aircraft_positions:
+  #   recorded_at >= 2026-01-01 (filter-operator: gte)
+  # Para sobrescrever por ambiente, defina a variável table_mappings no tfvars.
+  table_mappings = var.table_mappings != null ? var.table_mappings : file("${path.module}/table-mappings.json")
 
   replication_settings = var.replication_settings != null ? var.replication_settings : jsonencode({
     TargetMetadata = {
