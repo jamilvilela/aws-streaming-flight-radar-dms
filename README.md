@@ -88,7 +88,7 @@ rollback-setup.sh          # Destrói recursos (Terraform destroy)
 ## Pré-requisitos
 
 - Cluster Aurora PostgreSQL existente (gerenciado externamente)
-- Secrets Manager secret: `<project_name>-dms-aurora-credentials` (criado automaticamente pelo `setup-env.sh`)
+- Secrets Manager secret existente com credenciais do Aurora (nome definido via `DB_SECRET_NAME` no `.env` — gerenciado externamente, o `setup-env.sh` não cria nem altera)
 - Bucket S3 de landing zone existente
 - VPC com subnets privadas para o DMS Serverless
 
@@ -97,12 +97,14 @@ rollback-setup.sh          # Destrói recursos (Terraform destroy)
 ```bash
 # 1. Configure .env
 cp .env.example .env
-# Edite .env com DB_USER e DB_PASSWORD
+# Preencha DB_SECRET_NAME com o nome do secret existente do DMS (não é versionado)
 
 # 2. Configure tfvars
+cp infra/tfvars/terraform.tfvars.example infra/tfvars/terraform.tfvars
 # Edite infra/tfvars/terraform.tfvars:
 #   - aurora_cluster_identifier (obrigatório)
 #   - vpc_name (opcional, default: <project_name>-vpc)
+# (terraform.tfvars não é versionado — o nome do secret fica no .env)
 
 # 3. Deploy
 ./setup-env.sh

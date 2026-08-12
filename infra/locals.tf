@@ -24,4 +24,8 @@ locals {
 
   # ── Landing bucket name with account suffix (convenience) ──
   landing_bucket_name = local.buckets.landing
+
+  # ── Secret existente com credenciais do Aurora para o source endpoint do DMS ──
+  # Gerenciado externamente (não é criado nem alterado pelo setup-env.sh).
+  aurora_credentials_secret_name = var.db_secret_name != null ? var.db_secret_name : "${var.project_name}/aurora-credentials"
 }

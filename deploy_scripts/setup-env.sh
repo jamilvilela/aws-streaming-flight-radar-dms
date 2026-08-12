@@ -155,34 +155,22 @@ if [ "$SKIP_APPLY" -eq 1 ]; then
   warn "--skip-apply informado; apply nao sera executado."
 else
   # -------------------------------------------------------------------------
-  # STEP 6.5 — Ensure DMS secret exists (data source, not managed by TF)
+  # STEP 6.5 — Verifica o secret existente do DMS (não cria nem sobrescreve)
+  # O secret é gerenciado externamente (nome definido via DB_SECRET_NAME no .env)
+  # e deve existir antes do apply — o Terraform lê via data source.
   # -------------------------------------------------------------------------
   PROJECT_NAME="${PROJECT_NAME:-${TF_VAR_project_name:-$(grep -E '^project_name' "$TFVARS_FILE" | head -1 | cut -d= -f2 | tr -d ' \"')}}"
   PROJECT_NAME="${PROJECT_NAME//$'\r'}"
-  DMS_SECRET_NAME="${PROJECT_NAME}-dms-aurora-credentials"
+  # Nome do secret vem do .env (DB_SECRET_NAME) — não é versionado no tfvars.
+  DMS_SECRET_NAME="${DB_SECRET_NAME:-${PROJECT_NAME}/aurora-credentials}"
+  export TF_VAR_db_secret_name="$DMS_SECRET_NAME"
 
-  if ! aws secretsmanager describe-secret --secret-id "$DMS_SECRET_NAME" --region "$AWS_REGION" &>/dev/null; then
-    echo -e "  ${BLUE}Criando secret $DMS_SECRET_NAME...${NC}"
-    aws secretsmanager create-secret \
-      --name "$DMS_SECRET_NAME" \
-      --description "RDS PostgreSQL credentials for DMS source endpoint (created by setup-env.sh)" \
-      --secret-string '{"username":"placeholder","password":"placeholder"}' \
-      --region "$AWS_REGION" > /dev/null
-    ok "Secret $DMS_SECRET_NAME criado"
+  if aws secretsmanager describe-secret --secret-id "$DMS_SECRET_NAME" --region "$AWS_REGION" &>/dev/null; then
+    ok "Secret existente $DMS_SECRET_NAME encontrado (será utilizado pelo DMS)"
   else
-    # Se existir mas estiver agendado para delecao, restaura
-    DELETION_DATE=$(aws secretsmanager describe-secret \
-      --secret-id "$DMS_SECRET_NAME" \
-      --query 'DeletedDate' --output text --region "$AWS_REGION" 2>/dev/null)
-    if [ -n "$DELETION_DATE" ] && [ "$DELETION_DATE" != "None" ]; then
-      echo -e "  ${BLUE}Restaurando secret $DMS_SECRET_NAME (agendado para delecao)...${NC}"
-      aws secretsmanager restore-secret \
-        --secret-id "$DMS_SECRET_NAME" \
-        --region "$AWS_REGION" > /dev/null
-      ok "Secret restaurado"
-    else
-      ok "Secret $DMS_SECRET_NAME ja existe"
-    fi
+    warn "Secret $DMS_SECRET_NAME não encontrado."
+    echo "   O setup-env não cria secrets — verifique/crie o secret existente antes do apply:"
+    echo "   aws secretsmanager describe-secret --secret-id \"$DMS_SECRET_NAME\" --region \"$AWS_REGION\""
   fi
 
   section "STEP 7 — terraform apply"
@@ -190,26 +178,10 @@ else
   [ $? -ne 0 ] && { fail "terraform apply falhou"; exit 2; }
   ok "apply concluido"
 
-  # ── Popula o secret do DMS com as credenciais do Aurora ──
-  # Endpoint, porta e db_name vêm dos outputs do Terraform (data sources).
-  # Username e password vêm do .env (DB_USER / DB_PASSWORD).
-  if [ -n "${DB_PASSWORD:-}" ]; then
-    AURORA_ENDPOINT="$(terraform output -raw aurora_endpoint 2>/dev/null || echo '')"
-    AURORA_PORT="$(terraform output -raw aurora_port 2>/dev/null || echo '5432')"
-    AURORA_DBNAME="$(terraform output -raw aurora_db_name 2>/dev/null || echo 'flightradar')"
-    AURORA_USER="${DB_USER:-dbadmin}"
-    DMS_SECRET_VALUE="{\"username\":\"${AURORA_USER}\",\"password\":\"${DB_PASSWORD}\",\"host\":\"${AURORA_ENDPOINT}\",\"port\":${AURORA_PORT},\"dbname\":\"${AURORA_DBNAME}\"}"
-    aws secretsmanager put-secret-value \
-      --secret-id "$DMS_SECRET_NAME" \
-      --secret-string "$DMS_SECRET_VALUE" \
-      --region "$AWS_REGION" &>/dev/null
-    ok "DMS secret '$DMS_SECRET_NAME' atualizado com credenciais do Aurora"
-  else
-    warn "DB_PASSWORD nao definido no .env. Secret do DMS nao foi populado automaticamente."
-    echo "   Defina DB_USER e DB_PASSWORD no .env e execute novamente o setup-env.sh,"
-    echo "   ou preencha manualmente via AWS Console / CLI:"
-    echo "   aws secretsmanager put-secret-value --secret-id \"$DMS_SECRET_NAME\" --secret-string '{\"username\":\"...\",\"password\":\"...\",\"host\":\"...\",\"port\":5432,\"dbname\":\"...\"}'"
-  fi
+  # ── Secret do DMS: utilizado como está (não é criado nem sobrescrito) ──
+  # O secret existente já contém as credenciais do Aurora (username, password,
+  # host, port, dbname). O setup-env não altera o secret.
+  ok "Secret '$DMS_SECRET_NAME' será utilizado como está pelo source endpoint do DMS"
 
 fi
 
@@ -328,7 +300,7 @@ echo -e "  ${BOLD}Source Endpoint${NC}     = ${GREEN}${DMS_SOURCE_ARN}${NC}"
 echo -e "  ${BOLD}Target Endpoint${NC}     = ${GREEN}${DMS_TARGET_ARN}${NC}"
 echo ""
 echo -e "O cluster Aurora PostgreSQL é gerenciado externamente."
-echo -e "Certifique-se de que o Secret ${CYAN}${PROJECT_NAME}-dms-aurora-credentials${NC}"
+echo -e "Certifique-se de que o Secret ${CYAN}${DMS_SECRET_NAME:-${PROJECT_NAME}/aurora-credentials}${NC}"
 echo -e "no AWS Secrets Manager contenha as credenciais corretas do Aurora."
 echo ""
 

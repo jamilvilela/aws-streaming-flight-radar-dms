@@ -53,3 +53,6 @@ __pycache__/
 *$py.class
 
 .env
+
+# tfvars contém valores sensíveis (não versionar) — use terraform.tfvars.example
+infra/tfvars/terraform.tfvars

@@ -50,6 +50,12 @@ variable "aurora_cluster_identifier" {
   type        = string
 }
 
+variable "db_secret_name" {
+  description = "Name of the existing Secrets Manager secret with Aurora credentials for the DMS source endpoint. Set via .env (DB_SECRET_NAME → TF_VAR_db_secret_name). Default: \"<project_name>/aurora-credentials\""
+  type        = string
+  default     = null
+}
+
 # ── DMS Serverless configuration ───────────────────────────────────────────
 
 variable "min_capacity_units" {

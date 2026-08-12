@@ -1,3 +1,12 @@
+# =============================================================================
+# terraform.tfvars.example — copie para terraform.tfvars e ajuste os valores
+#   cp tfvars/terraform.tfvars.example tfvars/terraform.tfvars
+#
+# ⚠️  terraform.tfvars NÃO é versionado (.gitignore) — contém valores sensíveis.
+# ⚠️  O nome do secret do DMS (DB_SECRET_NAME) é definido no .env e exportado
+#      como TF_VAR_db_secret_name — NÃO coloque aqui.
+# =============================================================================
+
 aws_region   = "us-east-1"
 project_name = "flight-radar-stream"
 environment  = "production"
@@ -25,4 +34,3 @@ max_capacity_units = 8
 multi_az           = false
 log_retention_days = 7
 create_kms_key     = true
-

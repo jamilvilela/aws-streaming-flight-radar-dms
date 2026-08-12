@@ -4,7 +4,7 @@
 # O Terraform apenas lê o secret existente — não gerencia ciclo de vida.
 # ---------------------------------------------------------------------------
 data "aws_secretsmanager_secret" "aurora_credentials" {
-  name = "${var.project_name}-dms-aurora-credentials"
+  name = local.aurora_credentials_secret_name
 }
 
 # ---------------------------------------------------------------------------

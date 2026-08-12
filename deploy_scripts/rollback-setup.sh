@@ -38,6 +38,9 @@ set +a
 PROJECT_NAME="${PROJECT_NAME:-flight-radar-stream}"
 REGION="${AWS_REGION:-us-east-1}"
 
+# Nome do secret do DMS vem do .env (DB_SECRET_NAME) — exporta para o Terraform
+export TF_VAR_db_secret_name="${DB_SECRET_NAME:-${PROJECT_NAME}/aurora-credentials}"
+
 # =============================================================================
 # STEP 3: Terraform destroy (DMS Serverless + recursos auxiliares)
 # =============================================================================
