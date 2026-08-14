@@ -1,11 +1,10 @@
 # ---------------------------------------------------------------------------
 # Secrets Manager — Aurora PostgreSQL credentials for DMS source endpoint
-# O secret é criado pelo setup-env.sh (via AWS CLI) antes do apply.
-# O Terraform apenas lê o secret existente — não gerencia ciclo de vida.
+# O secret é gerenciado em secrets.tf:
+#   - Se já existe com o nome configurado → é REUTILIZADO (não é sobrescrito).
+#   - Se não existe → é CRIADO com as credenciais do .env (TF_VAR_db_*).
+# O ARN efetivo é exposto via local.aurora_credentials_secret_arn.
 # ---------------------------------------------------------------------------
-data "aws_secretsmanager_secret" "aurora_credentials" {
-  name = local.aurora_credentials_secret_name
-}
 
 # ---------------------------------------------------------------------------
 # DMS subnet group
@@ -35,7 +34,7 @@ resource "aws_dms_endpoint" "source" {
   ssl_mode      = "require"
 
   secrets_manager_access_role_arn = aws_iam_role.dms_s3.arn
-  secrets_manager_arn             = data.aws_secretsmanager_secret.aurora_credentials.arn
+  secrets_manager_arn             = local.aurora_credentials_secret_arn
 
   postgres_settings {
     capture_ddls = true

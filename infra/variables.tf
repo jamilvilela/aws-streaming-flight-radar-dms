@@ -56,6 +56,41 @@ variable "db_secret_name" {
   default     = null
 }
 
+# ── Aurora credentials (do .env → TF_VAR_db_*) ─────────────────────────────
+# Usadas para CRIAR o secret no Secrets Manager quando ele ainda não existe.
+# Se o secret já existir, estes valores não são utilizados.
+
+variable "db_host" {
+  description = "Aurora cluster writer endpoint host (from .env DB_HOST → TF_VAR_db_host). Used to create the secret when it doesn't exist."
+  type        = string
+  default     = null
+}
+
+variable "db_port" {
+  description = "Aurora cluster port (from .env DB_PORT → TF_VAR_db_port). Used to create the secret when it doesn't exist."
+  type        = string
+  default     = null
+}
+
+variable "db_name" {
+  description = "Aurora database name (from .env DB_NAME → TF_VAR_db_name). Used to create the secret when it doesn't exist."
+  type        = string
+  default     = null
+}
+
+variable "db_username" {
+  description = "Aurora database username (from .env DB_USER → TF_VAR_db_username). Used to create the secret when it doesn't exist."
+  type        = string
+  default     = null
+}
+
+variable "db_password" {
+  description = "Aurora database password (from .env DB_PASSWORD → TF_VAR_db_password). Used to create the secret when it doesn't exist."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
 # ── DMS Serverless configuration ───────────────────────────────────────────
 
 variable "min_capacity_units" {

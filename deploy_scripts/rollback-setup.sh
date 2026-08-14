@@ -41,6 +41,14 @@ REGION="${AWS_REGION:-us-east-1}"
 # Nome do secret do DMS vem do .env (DB_SECRET_NAME) — exporta para o Terraform
 export TF_VAR_db_secret_name="${DB_SECRET_NAME:-${PROJECT_NAME}/aurora-credentials}"
 
+# Credenciais do Aurora (do .env) — necessárias para o destroy caso o secret
+# tenha sido criado pelo Terraform (recurso presente no state).
+export TF_VAR_db_host="${DB_HOST:-}"
+export TF_VAR_db_port="${DB_PORT:-}"
+export TF_VAR_db_name="${DB_NAME:-}"
+export TF_VAR_db_username="${DB_USER:-}"
+export TF_VAR_db_password="${DB_PASSWORD:-}"
+
 # =============================================================================
 # STEP 3: Terraform destroy (DMS Serverless + recursos auxiliares)
 # =============================================================================

@@ -1,7 +1,7 @@
 locals {
   # ── VPC e subnets descobertas via data sources ──
   # Usa a VPC por nome se existir; senão cai para a default VPC
-  effective_vpc_id    = length(data.aws_vpcs.by_name.ids) > 0 ? data.aws_vpcs.by_name.ids[0] : data.aws_vpc.default.id
+  effective_vpc_id     = length(data.aws_vpcs.by_name.ids) > 0 ? data.aws_vpcs.by_name.ids[0] : data.aws_vpc.default.id
   effective_subnet_ids = data.aws_subnets.selected.ids
 
   # ── Aurora cluster info descoberta via data source ──

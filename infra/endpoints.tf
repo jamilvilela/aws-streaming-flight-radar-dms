@@ -30,6 +30,24 @@ resource "aws_vpc_endpoint" "secrets_manager" {
 
   private_dns_enabled = true
 
+  # Policy restritiva do endpoint: permite apenas leitura do secret do DMS
+  # via PrivateLink (defense-in-depth).
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AllowDMSSecretsManagerAccess"
+        Effect    = "Allow"
+        Principal = "*"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+        ]
+        Resource = [local.aurora_credentials_secret_arn]
+      }
+    ]
+  })
+
   tags = merge(var.tags, {
     Name = "${var.project_name}-dms-serverless-secrets-vpce"
   })

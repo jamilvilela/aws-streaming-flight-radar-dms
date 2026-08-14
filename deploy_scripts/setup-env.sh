@@ -69,6 +69,14 @@ if [ -n "$AWS_REGION" ]; then
   export TF_VAR_aws_region="$AWS_REGION"
 fi
 
+# Credenciais do Aurora (do .env) para CRIAR o secret no Secrets Manager
+# quando ele ainda não existir. Exportadas como TF_VAR_db_* para o Terraform.
+export TF_VAR_db_host="${DB_HOST:-}"
+export TF_VAR_db_port="${DB_PORT:-}"
+export TF_VAR_db_name="${DB_NAME:-}"
+export TF_VAR_db_username="${DB_USER:-}"
+export TF_VAR_db_password="${DB_PASSWORD:-}"
+
 # ── VPC, subnets e Aurora são descobertos via Terraform data sources ─────
 # Não é mais necessário exportar TF_VAR_* para esses valores.
 # O Terraform descobre automaticamente:
@@ -166,11 +174,10 @@ else
   export TF_VAR_db_secret_name="$DMS_SECRET_NAME"
 
   if aws secretsmanager describe-secret --secret-id "$DMS_SECRET_NAME" --region "$AWS_REGION" &>/dev/null; then
-    ok "Secret existente $DMS_SECRET_NAME encontrado (será utilizado pelo DMS)"
+    ok "Secret existente $DMS_SECRET_NAME encontrado (será REUTILIZADO pelo DMS)"
   else
-    warn "Secret $DMS_SECRET_NAME não encontrado."
-    echo "   O setup-env não cria secrets — verifique/crie o secret existente antes do apply:"
-    echo "   aws secretsmanager describe-secret --secret-id \"$DMS_SECRET_NAME\" --region \"$AWS_REGION\""
+    ok "Secret $DMS_SECRET_NAME não existe ainda — será CRIADO pelo Terraform"
+    echo "   com as credenciais do .env (DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD)."
   fi
 
   section "STEP 7 — terraform apply"

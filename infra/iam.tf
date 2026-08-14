@@ -46,8 +46,9 @@ resource "aws_iam_role_policy" "dms_s3" {
           Effect = "Allow"
           Action = [
             "secretsmanager:GetSecretValue",
+            "secretsmanager:DescribeSecret",
           ]
-          Resource = [data.aws_secretsmanager_secret.aurora_credentials.arn]
+          Resource = [local.aurora_credentials_secret_arn]
         },
       ],
       var.create_kms_key ? [

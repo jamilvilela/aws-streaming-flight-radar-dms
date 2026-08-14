@@ -57,6 +57,20 @@ resource "aws_security_group" "secrets_endpoint" {
 }
 
 # ---------------------------------------------------------------------------
+# Egress explícito do DMS para o VPC Endpoint do Secrets Manager
+# (defense-in-depth — além da regra genérica 443/0.0.0.0/0)
+# ---------------------------------------------------------------------------
+resource "aws_security_group_rule" "dms_to_secrets_endpoint" {
+  type                     = "egress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.secrets_endpoint.id
+  security_group_id        = aws_security_group.dms.id
+  description              = "DMS Serverless to Secrets Manager VPC Endpoint"
+}
+
+# ---------------------------------------------------------------------------
 # Allow DMS to access Aurora PostgreSQL on port 5432
 # ---------------------------------------------------------------------------
 resource "aws_security_group_rule" "dms_to_aurora" {
