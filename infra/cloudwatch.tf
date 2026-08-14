@@ -157,16 +157,20 @@ resource "aws_cloudwatch_dashboard" "dms" {
         width  = 24
         height = 6
         properties = {
+          # Métricas diárias do S3 (BucketSizeBytes/NumberOfObjects) só
+          # aparecem em ranges de dias (1 publicação/dia ~03:00 UTC) — no range
+          # Live ficam vazias. Usamos throughput do DMS para o alvo S3 (a cada
+          # minuto) como indicador real-time do landing.
           metrics = [
-            ["AWS/S3", "BucketSizeBytes", "BucketName",
-            local.landing_bucket_name, "StorageType", "StandardStorage", { stat = "Average" }],
-            ["AWS/S3", "NumberOfObjects", "BucketName",
-            local.landing_bucket_name, "StorageType", "AllStorageTypes", { stat = "Average" }],
+            ["AWS/DMS", "FullLoadThroughputRowsTarget", "ReplicationConfigId",
+            local.dms_replication_config_id],
+            ["AWS/DMS", "CDCThroughputRowsTarget", "ReplicationConfigId",
+            local.dms_replication_config_id],
           ]
-          period = 3600
-          stat   = "Average"
+          period = 60
+          stat   = "Sum"
           region = var.aws_region
-          title  = "S3 Landing Bucket Growth"
+          title  = "Rows landing in S3 (Full Load + CDC, rows/s)"
         }
       },
     ]

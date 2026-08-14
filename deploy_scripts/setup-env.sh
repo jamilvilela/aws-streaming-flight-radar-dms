@@ -174,7 +174,20 @@ else
   export TF_VAR_db_secret_name="$DMS_SECRET_NAME"
 
   if aws secretsmanager describe-secret --secret-id "$DMS_SECRET_NAME" --region "$AWS_REGION" &>/dev/null; then
-    ok "Secret existente $DMS_SECRET_NAME encontrado (será REUTILIZADO pelo DMS)"
+    DELETED_DATE=$(aws secretsmanager describe-secret --secret-id "$DMS_SECRET_NAME" --region "$AWS_REGION" --query 'DeletedDate' --output text 2>/dev/null)
+    if [ "$DELETED_DATE" != "None" ] && [ -n "$DELETED_DATE" ]; then
+      warn "Secret $DMS_SECRET_NAME está AGENDADO para exclusão (DeletedDate=$DELETED_DATE)."
+      warn "O data source do Terraform não enxerga secrets em 'pending deletion' e tentaria recriá-lo (erro de CreateSecret)."
+      ok "Restaurando o secret (restore-secret cancela a exclusão; versões/credenciais preservadas)..."
+      if aws secretsmanager restore-secret --secret-id "$DMS_SECRET_NAME" --region "$AWS_REGION" &>/dev/null; then
+        ok "Secret $DMS_SECRET_NAME restaurado — será REUTILIZADO pelo DMS"
+      else
+        fail "Falha ao restaurar o secret $DMS_SECRET_NAME"
+        exit 2
+      fi
+    else
+      ok "Secret existente $DMS_SECRET_NAME encontrado (será REUTILIZADO pelo DMS)"
+    fi
   else
     ok "Secret $DMS_SECRET_NAME não existe ainda — será CRIADO pelo Terraform"
     echo "   com as credenciais do .env (DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD)."
