@@ -96,57 +96,23 @@ resource "aws_dms_replication_config" "this" {
 
   # Regras de mapeamento explícitas — ver infra/table-mappings.json.
   # Seleciona APENAS as tabelas do schema flight_radar definidas em
-  # hidden/sql-init-schema.sql, e aplica source filter de data no full load
-  # (e CDC) da tabela particionada aircraft_positions:
-  #   recorded_at >= 2026-01-01 (filter-operator: gte)
+  # hidden/sql-init-schema.sql. aircraft_positions é PARTICIONADA: a seleção
+  # usa o wildcard aircraft_positions_% (as partições mensais) em vez do pai,
+  # pois o DMS só captura CDC no PostgreSQL pelo relation id da partição filha
+  # no WAL. Sem filtro de data (o DMS exige nome exato da tabela para filtros —
+  # não combina com wildcard); o full load carrega a tabela completa.
+  # Sem rename p/ "aircraft_positions": a AWS não suporta renomear múltiplas
+  # tabelas-fonte para o mesmo folder no target S3. Cada partição vira um
+  # prefixo próprio (ex: flight_radar/aircraft_positions_2026_08/).
   # Para sobrescrever por ambiente, defina a variável table_mappings no tfvars.
   table_mappings = var.table_mappings != null ? var.table_mappings : file("${path.module}/table-mappings.json")
 
-  replication_settings = var.replication_settings != null ? var.replication_settings : jsonencode({
-    TargetMetadata = {
-      SupportLobs        = true
-      FullLobMode        = false
-      LimitedSizeLobMode = true
-      LobMaxSize         = 32
-      LobChunkSize       = 64
-      InlineLobMaxSize   = 0
-      LoadMaxFileSize    = 0
-    }
-    ErrorBehavior = {
-      FailOnNoTablesCaptured             = false
-      FailOnTransactionConsistencyBreach = false
-    }
-    FullLoadSettings = {
-      TargetTablePrepMode             = "DO_NOTHING"
-      StopTaskCachedChangesNotApplied = false
-      StopTaskCachedChangesApplied    = false
-      MaxFullLoadSubTasks             = 8
-    }
-    Logging = {
-      EnableLogging = true
-      LogComponents = [
-        { Id = "TRANSFORMATION", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "SOURCE_UNLOAD", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "IO", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "TARGET_LOAD", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "PERFORMANCE", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "SOURCE_CAPTURE", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "SORTER", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "REST_SERVER", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "VALIDATOR_EXT", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "TARGET_APPLY", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "TASK_MANAGER", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "TABLES_MANAGER", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "METADATA_MANAGER", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "FILE_FACTORY", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "COMMON", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "ADDONS", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "DATA_STRUCTURE", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "COMMUNICATION", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "FILE_TRANSFER", Severity = "LOGGER_SEVERITY_DEFAULT" }
-      ]
-    }
-  })
+  # Replication settings — ver infra/replication-settings.json.
+  # TargetTablePrepMode = TRUNCATE_BEFORE_LOAD: para alvo S3, apaga os arquivos
+  # existentes do folder da tabela antes do full load (exige s3:DeleteObject na
+  # role) — evita dados duplicados/stale ao reiniciar full load + CDC.
+  # Para sobrescrever por ambiente, defina a variável replication_settings.
+  replication_settings = var.replication_settings != null ? var.replication_settings : file("${path.module}/replication-settings.json")
 
   # Don't auto-start — use AWS Console or CLI to start after validation
   start_replication = false

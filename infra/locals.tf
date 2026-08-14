@@ -28,4 +28,9 @@ locals {
   # ── Secret existente com credenciais do Aurora para o source endpoint do DMS ──
   # Gerenciado externamente (não é criado nem alterado pelo setup-env.sh).
   aurora_credentials_secret_name = var.db_secret_name != null ? var.db_secret_name : "${var.project_name}/aurora-credentials"
+
+  # ── DMS Serverless publica métricas CloudWatch com a dimensão:
+  #    ReplicationConfigId = "<account-id>:<sufixo-do-arn-do-replication-config>"
+  # (NÃO usa ReplicationConfigIdentifier). Derivado do ARN para o dashboard.
+  dms_replication_config_id = "${data.aws_caller_identity.current.account_id}:${element(split(":", aws_dms_replication_config.this.arn), -1)}"
 }

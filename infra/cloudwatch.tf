@@ -1,9 +1,12 @@
 # ---------------------------------------------------------------------------
-# CloudWatch log group for DMS Serverless
-# DMS Serverless cria logs em dms-replication-config-<config-id> automaticamente
+# CloudWatch log group para DMS Serverless
+# O DMS Serverless SEMPRE escreve logs em dms-serverless-replication-<sufixo do
+# ARN> (auto-cria se não existir) — não aceita nome customizado. Este recurso
+# garante retention e existência prévia com o nome real derivado do ARN.
+# (O nome antigo dms-replication-config-<identifier> nunca é usado pelo DMS.)
 # ---------------------------------------------------------------------------
 resource "aws_cloudwatch_log_group" "dms" {
-  name              = "dms-replication-config-${var.project_name}-dms-serverless-config"
+  name              = "dms-serverless-replication-${element(split(":", aws_dms_replication_config.this.arn), -1)}"
   retention_in_days = var.log_retention_days
 
   tags = merge(var.tags, {
@@ -12,8 +15,16 @@ resource "aws_cloudwatch_log_group" "dms" {
 }
 
 # ---------------------------------------------------------------------------
-# CloudWatch Dashboard — monitoramento do pipeline DMS
-# Métricas-chave para acompanhar throughput de CDC em tempo real
+# CloudWatch Dashboard — monitoramento do pipeline DMS Serverless
+# Métricas-chave para acompanhar throughput de full load e CDC em tempo real
+#
+# ATENÇÃO: o DMS Serverless publica métricas com dimensão
+#   ReplicationConfigId = "<account-id>:<sufixo do ARN>"
+# e com nomes próprios do serverless (CDCThroughputBandwidthTarget,
+# CDCIncomingChanges, CPUUtilization, CapacityUtilization, CDCLatencyTarget,
+# FullLoadThroughput*). Os nomes do DMS clássico (CDCChangesThroughput,
+# CDCChangesCount, CpuUsage, FreeMemory) NÃO são publicados no serverless —
+# por isso o dashboard anterior não exibia dados.
 # ---------------------------------------------------------------------------
 resource "aws_cloudwatch_dashboard" "dms" {
   dashboard_name = "${var.project_name}-dms-pipeline"
@@ -28,15 +39,13 @@ resource "aws_cloudwatch_dashboard" "dms" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/DMS", "CDCChangesThroughput", "ReplicationConfigIdentifier",
-            "${var.project_name}-dms-serverless-config"],
-            ["AWS/DMS", "CDCChangesThroughput", "ReplicationConfigIdentifier",
-            "${var.project_name}-dms-serverless-config", { stat = "Average" }],
+            ["AWS/DMS", "CDCThroughputBandwidthTarget", "ReplicationConfigId",
+            local.dms_replication_config_id],
           ]
           period = 60
           stat   = "Sum"
           region = var.aws_region
-          title  = "CDC Changes Throughput (bytes/s)"
+          title  = "CDC Throughput to target (bytes/s)"
         }
       },
       {
@@ -47,13 +56,13 @@ resource "aws_cloudwatch_dashboard" "dms" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/DMS", "CDCChangesCount", "ReplicationConfigIdentifier",
-            "${var.project_name}-dms-serverless-config"],
+            ["AWS/DMS", "CDCIncomingChanges", "ReplicationConfigId",
+            local.dms_replication_config_id],
           ]
           period = 60
           stat   = "Sum"
           region = var.aws_region
-          title  = "CDC Changes Count (records/s)"
+          title  = "CDC Changes incoming (records/s)"
         }
       },
       {
@@ -64,8 +73,8 @@ resource "aws_cloudwatch_dashboard" "dms" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/DMS", "CpuUsage", "ReplicationConfigIdentifier",
-            "${var.project_name}-dms-serverless-config"],
+            ["AWS/DMS", "CPUUtilization", "ReplicationConfigId",
+            local.dms_replication_config_id],
           ]
           period = 60
           stat   = "Average"
@@ -81,13 +90,13 @@ resource "aws_cloudwatch_dashboard" "dms" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/DMS", "FreeMemory", "ReplicationConfigIdentifier",
-            "${var.project_name}-dms-serverless-config"],
+            ["AWS/DMS", "CapacityUtilization", "ReplicationConfigId",
+            local.dms_replication_config_id],
           ]
           period = 60
           stat   = "Average"
           region = var.aws_region
-          title  = "Free Memory (MB)"
+          title  = "Capacity Utilization (%)"
         }
       },
       {
@@ -98,8 +107,8 @@ resource "aws_cloudwatch_dashboard" "dms" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/DMS", "CDCLatencyTarget", "ReplicationConfigIdentifier",
-            "${var.project_name}-dms-serverless-config"],
+            ["AWS/DMS", "CDCLatencyTarget", "ReplicationConfigId",
+            local.dms_replication_config_id],
           ]
           period = 60
           stat   = "Average"
@@ -111,14 +120,48 @@ resource "aws_cloudwatch_dashboard" "dms" {
         type   = "metric"
         x      = 0
         y      = 12
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/DMS", "FullLoadThroughputRowsTarget", "ReplicationConfigId",
+            local.dms_replication_config_id],
+          ]
+          period = 60
+          stat   = "Sum"
+          region = var.aws_region
+          title  = "Full Load Throughput (rows/s)"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 12
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/DMS", "FullLoadThroughputBandwidthTarget", "ReplicationConfigId",
+            local.dms_replication_config_id],
+          ]
+          period = 60
+          stat   = "Sum"
+          region = var.aws_region
+          title  = "Full Load Throughput (bytes/s)"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 18
         width  = 24
         height = 6
         properties = {
           metrics = [
             ["AWS/S3", "BucketSizeBytes", "BucketName",
-            local.landing_bucket_name, { stat = "Average" }],
+            local.landing_bucket_name, "StorageType", "StandardStorage", { stat = "Average" }],
             ["AWS/S3", "NumberOfObjects", "BucketName",
-            local.landing_bucket_name, { stat = "Average" }],
+            local.landing_bucket_name, "StorageType", "AllStorageTypes", { stat = "Average" }],
           ]
           period = 3600
           stat   = "Average"

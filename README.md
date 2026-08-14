@@ -40,27 +40,60 @@ conforme o schema `flight_radar` do `hidden/sql-init-schema.sql`:
 | `flights` | Gerada dinamicamente | Tabela fato de voos |
 | `aircraft_positions` | Gerada dinamicamente (PARTITIONED) | Fato de altíssimo volume |
 
-### Filtro de data no Full Load — `aircraft_positions`
+### Mapeamento da tabela particionada — `aircraft_positions`
 
-A tabela `aircraft_positions` é selecionada apenas pela tabela **pai** (partições
-mensais não são selecionadas individualmente, evitando output duplicado no S3).
-A regra de seleção inclui um *source filter* que limita a carga full (e o CDC) a
-registros com `recorded_at >= 2026-01-01`:
+`aircraft_positions` é **particionada por mês** (`PARTITION BY RANGE (recorded_at)`).
+O DMS **não captura CDC pela tabela pai**: no WAL do PostgreSQL, cada DML é
+registrado com o relation id da **partição filha** onde a linha foi gravada.
+Por isso o table mapping seleciona as **partições** via wildcard
+`aircraft_positions_%` (e não a tabela pai `aircraft_positions`), o que faz o
+full load e o CDC de todas as partições funcionarem.
 
-```json
-{
-  "filter-type": "source",
-  "column-name": "recorded_at",
-  "filter-conditions": [
-    { "filter-operator": "gte", "value": "2026-01-01" }
-  ]
-}
+> **Nota (limitações AWS DMS):**
+> - Selecionar apenas a tabela **pai** de uma tabela particionada funciona no
+>   full load, mas **não captura CDC** (AWS: *"Including the parent table in the
+>   mapping rule doesn't result in changes being replicated during the CDC
+>   phase"*). Por isso usamos o wildcard das partições.
+> - **Filtros source exigem nome exato da tabela** — não combinam com wildcard
+>   (`Filters only support tables with exact names. Filters do not support
+>   wildcards`). Por isso o full load de `aircraft_positions` carrega a tabela
+>   completa (sem filtro de `recorded_at`).
+> - A AWS **não suporta renomear múltiplas tabelas-fonte para o mesmo folder**
+>   no target S3 (regra de transformação `rename`). Assim, cada partição grava
+>   em um prefixo próprio, ex.: `flight_radar/aircraft_positions_2026_08/`
+>   (com subpastas de data `YYYY/MM/DD/HH` para CDC). Para consolidar em um
+>   único prefixo `aircraft_positions/`, use um job externo (ex.: Athena CTAS /
+>   Glue) pós-carga.
+> - No target S3 a tabela é gravada como tabela padrão (não particionada).
+>   DDL de partição (`ADD`/`DROP`/`TRUNCATE`) não é capturado no CDC.
+> - Novas partições criadas depois do start do task só entram na replicação
+>   após um reload do task (o DMS enumera as tabelas no início).
+
+### Reiniciar full load + CDC (todas as tabelas)
+
+O target S3 usa `TargetTablePrepMode = TRUNCATE_BEFORE_LOAD`, que apaga os
+arquivos existentes do folder da tabela antes do full load (evita duplicados
+em reloads). Para reiniciar do zero após alterar os table mappings:
+
+```bash
+# 1. Parar a replicação
+aws dms stop-replication \
+  --replication-config-arn <REPLICATION_CONFIG_ARN>
+
+# 2. Atualizar table mappings / settings no config live
+aws dms modify-replication-config \
+  --replication-config-arn <REPLICATION_CONFIG_ARN> \
+  --table-mappings file://infra/table-mappings.json \
+  --replication-settings file://<replication-settings.json>
+
+# 3. Limpar dados stale (prefixo antigo do run anterior)
+aws s3 rm s3://<bucket>/dms/flightradar/ --recursive
+
+# 4. Reload completo: full load de todas as tabelas + CDC
+aws dms start-replication \
+  --replication-config-arn <REPLICATION_CONFIG_ARN> \
+  --start-replication-type reload-target
 ```
-
-> **Nota (limitações AWS DMS p/ PostgreSQL particionado):** o DMS não replica
-> metadados de particionamento — no target S3 a tabela é gravada como tabela
-> padrão (não particionada). DDL de partição (`ADD`/`DROP`/`TRUNCATE`) não é
-> capturado no CDC.
 
 ## Estrutura
 
