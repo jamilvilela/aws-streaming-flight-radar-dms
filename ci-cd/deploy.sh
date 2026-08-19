@@ -1,11 +1,11 @@
 #!/bin/bash
-# setup-env.sh - Load environment variables, deploy Terraform for
+# deploy.sh - Load environment variables, deploy Terraform for
 # DMS Serverless (Aurora PostgreSQL → S3 Parquet), then verify
 # every resource and dump connection info.
 #
-# Usage:   ./setup-env.sh
-# Aliases: ./setup-env.sh --skip-apply   # init/validate/plan only
-#          ./setup-env.sh --no-verify    # skip post-deploy checks
+# Usage:   ./deploy.sh
+# Aliases: ./deploy.sh --skip-apply   # init/validate/plan only
+#          ./deploy.sh --no-verify    # skip post-deploy checks
 #
 # Exit codes:
 #   0  success
@@ -200,7 +200,7 @@ else
 
   # ── Secret do DMS: utilizado como está (não é criado nem sobrescrito) ──
   # O secret existente já contém as credenciais do Aurora (username, password,
-  # host, port, dbname). O setup-env não altera o secret.
+  # host, port, dbname). O deploy não altera o secret.
   ok "Secret '$DMS_SECRET_NAME' será utilizado como está pelo source endpoint do DMS"
 
 fi

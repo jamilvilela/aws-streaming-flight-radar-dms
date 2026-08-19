@@ -1,6 +1,6 @@
 # ============================================================================
 # Aurora cluster info (descoberto via data source)
-# Usado pelo setup-env.sh para popular o secret do DMS
+# Usado pelo deploy.sh para popular o secret do DMS
 # ============================================================================
 
 output "aurora_endpoint" {

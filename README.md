@@ -95,6 +95,35 @@ aws dms start-replication \
   --start-replication-type reload-target
 ```
 
+### Iniciar full load + CDC (primeira execução)
+
+A replication config é criada com `start_replication = false` (sem task rodando).
+Para iniciar o full load + CDC pela primeira vez:
+
+```bash
+aws dms start-replication \
+  --replication-config-arn <REPLICATION_CONFIG_ARN> \
+  --start-replication-type start-replication
+```
+
+> O ARN da config é o output `dms_replication_config_arn` do Terraform
+> (`terraform output dms_replication_config_arn`).
+> `start-replication` é o único valor válido na **primeira** execução de um
+> `full-load-and-cdc`. Depois, use `reload-target` (recarregar todas as tabelas)
+> ou `resume-processing` (retomar do último checkpoint).
+
+### Parar a replicação (forçadamente)
+
+```bash
+aws dms stop-replication \
+  --replication-config-arn <REPLICATION_CONFIG_ARN>
+```
+
+> Para DMS Serverless **não existe** flag `--force-stop` (isso é do DMS clássico,
+> `stop-replication-task`). O `stop-replication` interrompe qualquer replicação
+> em andamento da config sem desprovisionar os recursos. Se a task estiver
+> travada, aguarde até atingir um estado parável antes de tentar parar de novo.
+
 ## Estrutura
 
 ```
@@ -114,8 +143,9 @@ infra/                     # Terraform (recursos DMS Serverless)
 ├── tfvars/
 │   └── terraform.tfvars   # Valores das variáveis
 
-setup-env.sh               # Deploy automatizado (Terraform)
-rollback-setup.sh          # Destrói recursos (Terraform destroy)
+ci-cd/
+├── deploy.sh              # Deploy automatizado (Terraform)
+└── destroy.sh             # Destrói recursos (Terraform destroy)
 ```
 
 ## Pré-requisitos
@@ -144,11 +174,11 @@ cp infra/tfvars/terraform.tfvars.example infra/tfvars/terraform.tfvars
 # (terraform.tfvars não é versionado — o nome do secret fica no .env)
 
 # 3. Deploy
-./setup-env.sh
+./ci-cd/deploy.sh
 ```
 
 ## Destruir recursos
 
 ```bash
-./rollback-setup.sh
+./ci-cd/destroy.sh
 ```

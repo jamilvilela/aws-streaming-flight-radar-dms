@@ -1,6 +1,6 @@
 #!/bin/bash
-# rollback-setup.sh - DESTRÓI os recursos do DMS Serverless
-# Usage: ./rollback-setup.sh
+# destroy.sh - DESTRÓI os recursos do DMS Serverless
+# Usage: ./destroy.sh
 #
 # Fluxo:
 #   1. terraform destroy (destrói todos os recursos gerenciados)
@@ -80,7 +80,7 @@ echo "  📌 DMS Serverless e recursos auxiliares foram deletados."
 echo "  📌 O cluster Aurora PostgreSQL (externo) NÃO foi afetado."
 echo ""
 echo "  ▶️  Para recriar o ambiente do zero, rode:"
-echo "     ./setup-env.sh"
+echo "     ./deploy.sh"
 echo ""
 echo "═══════════════════════════════════════════════════════════════"
 exit 0
